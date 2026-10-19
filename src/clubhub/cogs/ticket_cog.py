@@ -170,14 +170,27 @@ class TicketCog(commands.Cog, name="Tickets"):
             text="Private Concern Review Queue" if cat_cfg.is_sensitive else "Support Review Queue"
         )
 
-        review_view = TicketReviewView(self, ticket_id)
-        review_msg = await review_channel.send(embed=embed, view=review_view)
-
-        # Resolve first handling role ID if available
-        handling_role_id = None
+        # Resolve handling roles with fallback to general support/HR
         resolved_roles = self._resolve_roles(guild, cat_cfg.handling_roles)
-        if resolved_roles:
-            handling_role_id = resolved_roles[0].id
+        if not resolved_roles:
+            fallback = (
+                self.config.roles.private_concern_roles
+                if cat_cfg.is_sensitive
+                else self.config.roles.support_roles
+            )
+            resolved_roles = self._resolve_roles(guild, fallback)
+
+        handling_role_id = resolved_roles[0].id if resolved_roles else None
+
+        # Mention the handling role (e.g. @Support or @HR) so they receive the request notification
+        notify_pings = " ".join(r.mention for r in resolved_roles) if resolved_roles else ""
+
+        review_view = TicketReviewView(self, ticket_id)
+        review_msg = await review_channel.send(
+            content=notify_pings if notify_pings else None,
+            embed=embed,
+            view=review_view,
+        )
 
         # Insert record into SQLite in 'pending_review' state
         await self.db.create_ticket(
@@ -238,6 +251,22 @@ class TicketCog(commands.Cog, name="Tickets"):
 
             await interaction.response.defer()
 
+            bot_member = guild.me
+            if not bot_member.guild_permissions.administrator:
+                missing_perms = []
+                if not bot_member.guild_permissions.manage_channels:
+                    missing_perms.append("Manage Channels")
+                if not bot_member.guild_permissions.manage_roles:
+                    missing_perms.append("Manage Roles / Permissions")
+                if missing_perms:
+                    await interaction.followup.send(
+                        "❌ **Bot Missing Permissions:** The bot cannot create ticket channels because its role is missing:\n"
+                        + "\n".join(f"• **{p}**" for p in missing_perms)
+                        + "\n\n👉 **Fix:** Open **Server Settings > Roles > Club-Bot > Permissions** and enable **Manage Channels** & **Manage Roles** (or simply grant **Administrator**).",
+                        ephemeral=True,
+                    )
+                    return
+
             cat_cfg = self.config.tickets.categories.get(ticket["category_key"])
             handling_roles = (
                 self._resolve_roles(guild, cat_cfg.handling_roles)
@@ -248,7 +277,7 @@ class TicketCog(commands.Cog, name="Tickets"):
             requester = guild.get_member(ticket["requester_id"])
 
             # 1. Build Permission Overwrites
-            # Only requester, handling roles, and bot can view and message in this channel
+            # Only requester, handling roles, and bot can view, message, and join voice in this space
             overwrites: Dict[
                 Union[discord.Role, discord.Member], discord.PermissionOverwrite
             ] = {
@@ -256,6 +285,7 @@ class TicketCog(commands.Cog, name="Tickets"):
                     read_messages=False,
                     view_channel=False,
                     send_messages=False,
+                    connect=False,
                 ),
                 guild.me: discord.PermissionOverwrite(
                     read_messages=True,
@@ -266,6 +296,8 @@ class TicketCog(commands.Cog, name="Tickets"):
                     attach_files=True,
                     read_message_history=True,
                     view_channel=True,
+                    connect=True,
+                    speak=True,
                 ),
             }
 
@@ -276,15 +308,24 @@ class TicketCog(commands.Cog, name="Tickets"):
                     send_messages=True,
                     attach_files=True,
                     read_message_history=True,
+                    connect=True,
+                    speak=True,
                 )
 
             for h_role in handling_roles:
+                if not bot_member.guild_permissions.administrator and h_role >= bot_member.top_role:
+                    logger.warning(
+                        f"Skipping overwrite for role '{h_role.name}' because it ranks above or equal to bot role '{bot_member.top_role.name}'."
+                    )
+                    continue
                 overwrites[h_role] = discord.PermissionOverwrite(
                     view_channel=True,
                     read_messages=True,
                     send_messages=True,
                     attach_files=True,
                     read_message_history=True,
+                    connect=True,
+                    speak=True,
                 )
 
             # 2. Determine Parent Category (if existing category configured or category creation enabled)
@@ -292,10 +333,18 @@ class TicketCog(commands.Cog, name="Tickets"):
             discord_category: Optional[discord.CategoryChannel] = None
             
             if self.config.tickets.create_category:
-                discord_category = await guild.create_category(
-                    name=ticket["ticket_id"], overwrites=overwrites, reason=f"ClubHub ticket {ticket['ticket_id']}"
-                )
-                parent_category = discord_category
+                try:
+                    discord_category = await guild.create_category(
+                        name=ticket["ticket_id"], overwrites=overwrites, reason=f"ClubHub ticket {ticket['ticket_id']}"
+                    )
+                    parent_category = discord_category
+                except discord.Forbidden:
+                    await interaction.followup.send(
+                        "❌ **Discord 403 Forbidden:** The bot does not have permission to create categories. "
+                        "Please give the `Club-Bot` role the **Manage Channels** or **Administrator** permission.",
+                        ephemeral=True,
+                    )
+                    return
             elif self.config.tickets.parent_category:
                 cat_ref = self.config.tickets.parent_category
                 if isinstance(cat_ref, int) or (isinstance(cat_ref, str) and str(cat_ref).isdigit()):
@@ -308,23 +357,39 @@ class TicketCog(commands.Cog, name="Tickets"):
                         guild.categories,
                     )
 
-            # 3. Create private text channel directly on the server
-            channel_name = ticket["ticket_id"].lower()
-            text_channel = await guild.create_text_channel(
-                name=channel_name,
-                category=parent_category,
-                overwrites=overwrites,
-                topic=f"Ticket {ticket['ticket_id']} | Requester: {ticket['requester_name']}",
-                reason=f"ClubHub ticket {ticket['ticket_id']}",
-            )
+            # 3. Create text channel
+            channel_name = "discussion" if discord_category else ticket["ticket_id"].lower()
+            try:
+                text_channel = await guild.create_text_channel(
+                    name=channel_name,
+                    category=parent_category,
+                    overwrites=overwrites,
+                    topic=f"Ticket {ticket['ticket_id']} | Requester: {ticket['requester_name']}",
+                    reason=f"ClubHub ticket {ticket['ticket_id']}",
+                )
+            except discord.Forbidden as e:
+                logger.error(f"Missing permissions while creating text channel: {e}")
+                await interaction.followup.send(
+                    "❌ **Discord 403 Forbidden (Missing Permissions):** The bot was denied permission to create this channel.\n\n"
+                    "👉 **How to fix:**\n"
+                    "1. Go to **Server Settings > Roles > Club-Bot > Permissions**.\n"
+                    "2. Enable **Administrator**.\n"
+                    "3. Click **Save Changes** and try accepting again!",
+                    ephemeral=True,
+                )
+                return
 
-            # 4. Optional Support Voice channel
+            # 4. Support Voice channel
             voice_channel: Optional[discord.VoiceChannel] = None
             if self.config.tickets.create_voice_channel and parent_category:
-                voice_channel = await parent_category.create_voice_channel(
-                    name="Support Voice",
-                    overwrites=overwrites,
-                )
+                try:
+                    voice_channel = await parent_category.create_voice_channel(
+                        name="Support Voice",
+                        overwrites=overwrites,
+                        reason=f"ClubHub ticket {ticket['ticket_id']}",
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not create voice channel: {e}")
 
             # 5. Send pinned Control Message in the ticket channel
             control_embed = discord.Embed(

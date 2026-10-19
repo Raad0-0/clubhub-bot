@@ -40,10 +40,9 @@ channels:
 tickets:
   # General settings
   one_ticket_per_member: true
-  ticket_category_prefix: "ticket"
-  create_category: false        # Set to false to create a single private channel directly on the server
-  create_voice_channel: false   # Set to false to only create a text channel
-  # parent_category: "TICKETS"  # Optional: Existing category to place ticket channels under
+  ticket_category_prefix: "TICKET"
+  create_category: true         # Create dedicated temporary category for each ticket
+  create_voice_channel: true    # Create text channel and Support Voice channel inside category
   
   # Auto-cleanup policy (OR-based: text activity OR voice presence)
   cleanup:
