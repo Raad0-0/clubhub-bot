@@ -24,9 +24,9 @@ class ClubHubBot(commands.Bot):
 
         intents = discord.Intents.default()
         intents.guilds = True
-        intents.members = True
-        intents.message_content = True
         intents.voice_states = True
+        intents.members = config.intents.members
+        intents.message_content = config.intents.message_content
 
         super().__init__(
             command_prefix=commands.when_mentioned_or(config.community.prefix),

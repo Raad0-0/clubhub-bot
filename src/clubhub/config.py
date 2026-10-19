@@ -72,7 +72,10 @@ class TicketPanelConfig:
 @dataclass
 class TicketsConfig:
     one_ticket_per_member: bool = True
-    ticket_category_prefix: str = "TICKET"
+    ticket_category_prefix: str = "ticket"
+    create_category: bool = False
+    create_voice_channel: bool = False
+    parent_category: Optional[Union[str, int]] = None
     cleanup: TicketCleanupConfig = field(default_factory=TicketCleanupConfig)
     panel: TicketPanelConfig = field(default_factory=TicketPanelConfig)
     categories: Dict[str, TicketCategoryConfig] = field(default_factory=dict)
@@ -111,10 +114,17 @@ class EventsConfig:
 
 
 @dataclass
+class IntentsConfig:
+    members: bool = True
+    message_content: bool = True
+
+
+@dataclass
 class AppConfig:
     discord_token: str
     database_path: str = "clubhub.db"
     log_level: str = "INFO"
+    intents: IntentsConfig = field(default_factory=IntentsConfig)
     community: CommunityConfig = field(default_factory=CommunityConfig)
     roles: RolesConfig = field(default_factory=RolesConfig)
     channels: ChannelsConfig = field(default_factory=ChannelsConfig)
@@ -250,7 +260,10 @@ def load_config(config_path: Union[str, Path] = "config.yaml", env_path: Optiona
 
     tickets = TicketsConfig(
         one_ticket_per_member=tickets_data.get("one_ticket_per_member", True),
-        ticket_category_prefix=tickets_data.get("ticket_category_prefix", "TICKET"),
+        ticket_category_prefix=tickets_data.get("ticket_category_prefix", "ticket"),
+        create_category=bool(tickets_data.get("create_category", False)),
+        create_voice_channel=bool(tickets_data.get("create_voice_channel", False)),
+        parent_category=tickets_data.get("parent_category", None),
         cleanup=cleanup,
         panel=panel,
         categories=categories,
@@ -287,10 +300,18 @@ def load_config(config_path: Union[str, Path] = "config.yaml", env_path: Optiona
         reminder_lead_times_minutes=events_data.get("reminder_lead_times_minutes", [60, 15]),
     )
 
+    # Intents
+    intents_data = raw_cfg.get("intents", {})
+    intents = IntentsConfig(
+        members=bool(intents_data.get("members", True)),
+        message_content=bool(intents_data.get("message_content", True)),
+    )
+
     app_config = AppConfig(
         discord_token=discord_token,
         database_path=database_path,
         log_level=log_level,
+        intents=intents,
         community=community,
         roles=roles,
         channels=channels,

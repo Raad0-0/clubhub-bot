@@ -183,3 +183,43 @@ async def test_events_and_rsvps(db):
     updated_summary = await db.get_event_rsvps_summary(event_id)
     assert len(updated_summary["going"]) == 0
     assert "Alice" in updated_summary["maybe"]
+
+
+@pytest.mark.asyncio
+async def test_single_channel_ticket_mode(db):
+    """Test acceptance and closure with only a single text channel (no category, no VC)."""
+    guild_id = 300
+    user_id = 999
+
+    await db.create_ticket(
+        ticket_id="TICKET-0100",
+        guild_id=guild_id,
+        requester_id=user_id,
+        requester_name="SoloUser",
+        category_key="general_assistance",
+        category_name="General Assistance",
+        subject="Channel Only Test",
+        description="Testing without dedicated category or VC",
+    )
+
+    success = await db.accept_ticket_atomic(
+        ticket_id="TICKET-0100",
+        accepted_by_id=10,
+        accepted_by_name="SupportStaff",
+        discord_category_id=None,
+        discord_text_channel_id=8888,
+        discord_voice_channel_id=None,
+        control_message_id=9999,
+    )
+    assert success is True
+
+    ticket = await db.get_ticket("TICKET-0100")
+    assert ticket["status"] == "open"
+    assert ticket["discord_category_id"] is None
+    assert ticket["discord_voice_channel_id"] is None
+    assert ticket["discord_text_channel_id"] == 8888
+
+    # Lookup by text channel works
+    found = await db.get_ticket_by_text_channel(8888)
+    assert found is not None
+    assert found["ticket_id"] == "TICKET-0100"

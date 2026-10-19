@@ -307,10 +307,10 @@ class DatabaseManager:
         ticket_id: str,
         accepted_by_id: int,
         accepted_by_name: str,
-        discord_category_id: int,
-        discord_text_channel_id: int,
-        discord_voice_channel_id: int,
-        control_message_id: int,
+        discord_category_id: Optional[int] = None,
+        discord_text_channel_id: Optional[int] = None,
+        discord_voice_channel_id: Optional[int] = None,
+        control_message_id: Optional[int] = None,
     ) -> bool:
         """Atomically transition a ticket from 'pending_review' to 'open'.
         

@@ -63,7 +63,17 @@ class TicketCog(commands.Cog, name="Tickets"):
 
         cat_key = ticket.get("category_key")
         cat_cfg = self.config.tickets.categories.get(cat_key or "")
-        allowed_roles = cat_cfg.handling_roles if cat_cfg else self.config.roles.support_roles
+        allowed_roles = list(cat_cfg.handling_roles) if cat_cfg else []
+
+        # Include general support/private roles as fallbacks
+        if not cat_cfg or not cat_cfg.is_sensitive:
+            for r in self.config.roles.support_roles:
+                if r not in allowed_roles:
+                    allowed_roles.append(r)
+        else:
+            for r in self.config.roles.private_concern_roles:
+                if r not in allowed_roles:
+                    allowed_roles.append(r)
 
         for role in user.roles:
             if role.name in allowed_roles or role.id in allowed_roles:
@@ -238,20 +248,23 @@ class TicketCog(commands.Cog, name="Tickets"):
             requester = guild.get_member(ticket["requester_id"])
 
             # 1. Build Permission Overwrites
-            # Per Section 10: Intended access = Requester, Configured handling role, Bot.
+            # Only requester, handling roles, and bot can view and message in this channel
             overwrites: Dict[
                 Union[discord.Role, discord.Member], discord.PermissionOverwrite
             ] = {
                 guild.default_role: discord.PermissionOverwrite(
-                    read_messages=False, view_channel=False, connect=False
+                    read_messages=False,
+                    view_channel=False,
+                    send_messages=False,
                 ),
                 guild.me: discord.PermissionOverwrite(
                     read_messages=True,
                     send_messages=True,
                     manage_channels=True,
                     manage_permissions=True,
-                    connect=True,
-                    speak=True,
+                    embed_links=True,
+                    attach_files=True,
+                    read_message_history=True,
                     view_channel=True,
                 ),
             }
@@ -262,8 +275,7 @@ class TicketCog(commands.Cog, name="Tickets"):
                     read_messages=True,
                     send_messages=True,
                     attach_files=True,
-                    connect=True,
-                    speak=True,
+                    read_message_history=True,
                 )
 
             for h_role in handling_roles:
@@ -272,28 +284,49 @@ class TicketCog(commands.Cog, name="Tickets"):
                     read_messages=True,
                     send_messages=True,
                     attach_files=True,
-                    connect=True,
-                    speak=True,
+                    read_message_history=True,
                 )
 
-            # 2. Create neutral category (Section 10: neutral identifiers rather than sensitive subjects)
-            category_name = ticket["ticket_id"]
-            discord_category = await guild.create_category(
-                name=category_name, overwrites=overwrites, reason=f"ClubHub ticket {ticket['ticket_id']}"
+            # 2. Determine Parent Category (if existing category configured or category creation enabled)
+            parent_category: Optional[discord.CategoryChannel] = None
+            discord_category: Optional[discord.CategoryChannel] = None
+            
+            if self.config.tickets.create_category:
+                discord_category = await guild.create_category(
+                    name=ticket["ticket_id"], overwrites=overwrites, reason=f"ClubHub ticket {ticket['ticket_id']}"
+                )
+                parent_category = discord_category
+            elif self.config.tickets.parent_category:
+                cat_ref = self.config.tickets.parent_category
+                if isinstance(cat_ref, int) or (isinstance(cat_ref, str) and str(cat_ref).isdigit()):
+                    found_cat = guild.get_channel(int(cat_ref))
+                    if isinstance(found_cat, discord.CategoryChannel):
+                        parent_category = found_cat
+                else:
+                    parent_category = discord.utils.find(
+                        lambda c: isinstance(c, discord.CategoryChannel) and c.name.lower() == str(cat_ref).lower(),
+                        guild.categories,
+                    )
+
+            # 3. Create private text channel directly on the server
+            channel_name = ticket["ticket_id"].lower()
+            text_channel = await guild.create_text_channel(
+                name=channel_name,
+                category=parent_category,
+                overwrites=overwrites,
+                topic=f"Ticket {ticket['ticket_id']} | Requester: {ticket['requester_name']}",
+                reason=f"ClubHub ticket {ticket['ticket_id']}",
             )
 
-            # 3. Create #discussion text channel
-            text_channel = await discord_category.create_text_channel(
-                name="discussion",
-                topic=f"Discussion for {ticket['ticket_id']} | Requester: {ticket['requester_name']}",
-            )
+            # 4. Optional Support Voice channel
+            voice_channel: Optional[discord.VoiceChannel] = None
+            if self.config.tickets.create_voice_channel and parent_category:
+                voice_channel = await parent_category.create_voice_channel(
+                    name="Support Voice",
+                    overwrites=overwrites,
+                )
 
-            # 4. Create Support Voice channel
-            voice_channel = await discord_category.create_voice_channel(
-                name="Support Voice",
-            )
-
-            # 5. Send pinned Control Message in #discussion
+            # 5. Send pinned Control Message in the ticket channel
             control_embed = discord.Embed(
                 title=f"{ticket['ticket_id']}",
                 color=self.config.community.branding.color,
@@ -321,13 +354,16 @@ class TicketCog(commands.Cog, name="Tickets"):
                 pass
 
             # 6. Atomic transition in DB
+            discord_category_id = discord_category.id if discord_category else None
+            discord_voice_channel_id = voice_channel.id if voice_channel else None
+
             success = await self.db.accept_ticket_atomic(
                 ticket_id=ticket["ticket_id"],
                 accepted_by_id=interaction.user.id,
                 accepted_by_name=str(interaction.user),
-                discord_category_id=discord_category.id,
+                discord_category_id=discord_category_id,
                 discord_text_channel_id=text_channel.id,
-                discord_voice_channel_id=voice_channel.id,
+                discord_voice_channel_id=discord_voice_channel_id,
                 control_message_id=control_msg.id,
             )
 

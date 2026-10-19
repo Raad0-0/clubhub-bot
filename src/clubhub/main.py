@@ -49,6 +49,26 @@ def main() -> None:
     except discord.LoginFailure:
         logging.error("Invalid Discord Bot Token provided in DISCORD_TOKEN.")
         sys.exit(1)
+    except discord.PrivilegedIntentsRequired:
+        logging.critical(
+            "\n"
+            "================================================================================\n"
+            "🚨 DISCORD PRIVILEGED GATEWAY INTENTS REQUIRED 🚨\n"
+            "================================================================================\n"
+            "Your bot needs Privileged Gateway Intents enabled in the Discord Developer Portal.\n\n"
+            "HOW TO FIX (Takes 10 seconds):\n"
+            "1. Open https://discord.com/developers/applications/\n"
+            "2. Click on your application / bot.\n"
+            "3. Select 'Bot' from the left sidebar.\n"
+            "4. Scroll down to the 'Privileged Gateway Intents' section.\n"
+            "5. Turn ON:\n"
+            "   [✓] SERVER MEMBERS INTENT\n"
+            "   [✓] MESSAGE CONTENT INTENT\n"
+            "6. Click 'Save Changes' at the bottom of the page.\n"
+            "7. Run 'python -m clubhub.main' again!\n"
+            "================================================================================\n"
+        )
+        sys.exit(1)
     except KeyboardInterrupt:
         logging.info("Interrupted by user. Exiting cleanly.")
     except Exception as e:

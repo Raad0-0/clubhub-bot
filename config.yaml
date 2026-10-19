@@ -1,0 +1,126 @@
+# ==============================================================================
+# ClubHub Community Configuration Template
+# ==============================================================================
+# All roles and channels can be specified as either numeric Discord IDs or names.
+# Numeric IDs are strongly recommended to ensure resilience against channel/role renames.
+
+community:
+  name: "Community ClubHub"
+  prefix: "!"
+  branding:
+    color: 0x5865F2 # Discord Blurple (hex)
+    accent_color: 0x57F287 # Green
+    warning_color: 0xFEE75C # Yellow
+    error_color: 0xED4245 # Red
+
+# Functional Role Mapping (mapped to server roles)
+roles:
+  admin_roles:
+    - "Admin"
+    # - "President"
+  organizer_roles:
+    # - "Event Organizer"
+    - "Committee"
+  support_roles:
+    - "Support"
+    # - "Staff"
+  private_concern_roles:
+    # - "Welfare Officer"
+    - "HR"
+
+# Standard Server Channels
+channels:
+  welcome_channel: "welcome"
+  events_channel: "events"
+  event_qa_review_channel: "meeting-planning"
+  bot_log_channel: "bot-log"
+  support_panel_channel: "open-a-ticket"
+
+# Ticket System Configuration
+tickets:
+  # General settings
+  one_ticket_per_member: true
+  ticket_category_prefix: "ticket"
+  create_category: false        # Set to false to create a single private channel directly on the server
+  create_voice_channel: false   # Set to false to only create a text channel
+  # parent_category: "TICKETS"  # Optional: Existing category to place ticket channels under
+  
+  # Auto-cleanup policy (OR-based: text activity OR voice presence)
+  cleanup:
+    enabled: true
+    inactivity_timeout_minutes: 120 # Default: 2 hours
+    warning_lead_time_minutes: 15   # Default: 15 minutes before deletion
+    restart_grace_period_minutes: 30 # Grace period given to overdue tickets after bot restart
+    check_interval_seconds: 60      # Watchdog polling frequency
+
+  # Entry Panel Configuration
+  panel:
+    title: "COMMUNITY SUPPORT"
+    description: "Need assistance or want to raise a concern?\nSubmit a request for the appropriate team to review."
+    button_label: "Create Ticket"
+    button_emoji: "📩"
+
+  # Category Routing (Maps member request categories to review channels & handling teams)
+  categories:
+    general_assistance:
+      display_name: "General Assistance"
+      description: "General questions and support about the community"
+      review_channel: "support-review"
+      handling_roles:
+        - "Support"
+      is_sensitive: false
+
+    membership_question:
+      display_name: "Membership Question"
+      description: "Questions regarding club membership, status, or registration"
+      review_channel: "support-review"
+      handling_roles:
+        - "Support"
+      is_sensitive: false
+
+    activity_help:
+      display_name: "Activity or Project Help"
+      description: "Assistance with current club projects, workshops, or activities"
+      review_channel: "support-review"
+      handling_roles:
+        - "Support"
+      is_sensitive: false
+
+    private_concern:
+      display_name: "Complaint / Private Concern"
+      description: "Confidential complaints, sensitive interpersonal issues, welfare"
+      review_channel: "private-review"
+      handling_roles:
+        - "HR"
+      is_sensitive: true
+
+# Google Sheets Integration (Optional Reporting Register)
+sheets_reporting:
+  enabled: false
+  spreadsheet_id: "your_google_spreadsheet_id_here"
+  support_worksheet: "Ticket Register"
+  sensitive_worksheet: "Sensitive Register" # Separate tab or restricted destination
+
+# Welcome Module Configuration
+welcome:
+  enabled: true
+  rules_channel: "rules"
+  guide_channel: "server-guide"
+  announcements_channel: "announcements"
+  message_template: |
+    Welcome to **{community_name}**, {member_mention}! 👋
+    
+    Please take a moment to review:
+    • {rules_channel_mention} for our community guidelines
+    • {guide_channel_mention} for getting started
+    • {announcements_channel_mention} for current news
+    
+    Need help? Visit {support_panel_mention} to request assistance.
+
+# Events & Reminders
+events:
+  default_timezone: "UTC"
+  allow_member_questions: true
+  reminder_lead_times_minutes:
+    - 60
+    - 15
