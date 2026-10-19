@@ -23,6 +23,7 @@ class TicketRequestModal(ui.Modal, title="Submit Support Request"):
 
         cat_cfg = cog.config.tickets.categories.get(category_key)
         cat_name = cat_cfg.display_name if cat_cfg else category_key
+        self.title = f"Submit: {cat_name}"[:45]
 
         self.subject_input = ui.TextInput(
             label="Subject",
@@ -89,22 +90,46 @@ class CategorySelectView(ui.View):
         self.add_item(CategorySelect(cog))
 
 
-class TicketEntryView(ui.View):
-    """Persistent view attached to the permanent entry panel in #open-a-ticket."""
+class TicketCategoryButton(ui.Button):
+    """Direct category button that opens a request modal without needing an intermediate dropdown."""
 
-    def __init__(self, cog: Optional[TicketCog] = None):
-        super().__init__(timeout=None)
+    def __init__(
+        self,
+        cog: TicketCog,
+        category_key: str,
+        cat_cfg: Any,
+    ):
+        emoji = getattr(cat_cfg, "emoji", None)
+        if not emoji:
+            if getattr(cat_cfg, "is_sensitive", False):
+                emoji = "🔒"
+            elif "member" in category_key.lower():
+                emoji = "📋"
+            elif any(w in category_key.lower() for w in ("activity", "project", "help")):
+                emoji = "🛠️"
+            else:
+                emoji = "💬"
+
+        raw_style = getattr(cat_cfg, "button_style", None)
+        if raw_style == "danger":
+            style = discord.ButtonStyle.danger
+        elif raw_style == "success":
+            style = discord.ButtonStyle.success
+        elif raw_style == "secondary" or getattr(cat_cfg, "is_sensitive", False):
+            style = discord.ButtonStyle.secondary
+        else:
+            style = discord.ButtonStyle.primary
+
+        super().__init__(
+            label=cat_cfg.display_name[:80],
+            style=style,
+            emoji=emoji,
+            custom_id=f"clubhub:create_ticket:{category_key}",
+        )
         self.cog = cog
+        self.category_key = category_key
 
-    @ui.button(
-        label="Create Ticket",
-        style=discord.ButtonStyle.primary,
-        custom_id="clubhub:entry_create_ticket",
-        emoji="📩",
-    )
-    async def create_ticket_btn(
-        self, interaction: discord.Interaction, button: ui.Button
-    ) -> None:
+    async def callback(self, interaction: discord.Interaction) -> None:
         if not self.cog:
             await interaction.response.send_message(
                 "Bot is initializing. Please try again in a moment.", ephemeral=True
@@ -125,7 +150,58 @@ class TicketEntryView(ui.View):
             )
             return
 
-        # Show category selection view
+        # Immediately open the modal for this category!
+        modal = TicketRequestModal(self.cog, self.category_key)
+        await interaction.response.send_modal(modal)
+
+
+class TicketEntryView(ui.View):
+    """Persistent view attached to the permanent entry panel with direct category buttons."""
+
+    def __init__(self, cog: Optional[TicketCog] = None):
+        super().__init__(timeout=None)
+        self.cog = cog
+
+        if cog:
+            for cat_key, cat_cfg in cog.config.tickets.categories.items():
+                self.add_item(TicketCategoryButton(cog, cat_key, cat_cfg))
+
+
+class LegacyTicketEntryView(ui.View):
+    """Backwards-compatibility view for older single 'Create Ticket' panels."""
+
+    def __init__(self, cog: Optional[TicketCog] = None):
+        super().__init__(timeout=None)
+        self.cog = cog
+
+    @ui.button(
+        label="Create Ticket",
+        style=discord.ButtonStyle.primary,
+        custom_id="clubhub:entry_create_ticket",
+        emoji="📩",
+    )
+    async def create_ticket_btn(
+        self, interaction: discord.Interaction, button: ui.Button
+    ) -> None:
+        if not self.cog:
+            await interaction.response.send_message(
+                "Bot is initializing. Please try again in a moment.", ephemeral=True
+            )
+            return
+
+        assert interaction.guild is not None
+        has_ticket = await self.cog.db.has_active_or_pending_ticket(
+            interaction.guild.id, interaction.user.id
+        )
+        if has_ticket:
+            await interaction.response.send_message(
+                "⚠️ **You already have a pending or active request.**\n"
+                "In order to ensure fair support for all members, each person may only have one active request at a time. "
+                "Please wait until your existing ticket is closed or resolved.",
+                ephemeral=True,
+            )
+            return
+
         view = CategorySelectView(self.cog)
         await interaction.response.send_message(
             "Please select the category that best matches your request:",

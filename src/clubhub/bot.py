@@ -56,6 +56,7 @@ class ClubHubBot(commands.Bot):
 
         # Register persistent views so interactive buttons survive restarts (Section 17)
         from clubhub.cogs.ticket_views import (
+            LegacyTicketEntryView,
             TicketControlView,
             TicketEntryView,
             TicketReviewView,
@@ -67,6 +68,7 @@ class ClubHubBot(commands.Bot):
         events_cog = self.get_cog("Events")
 
         self.add_view(TicketEntryView(ticket_cog))  # type: ignore
+        self.add_view(LegacyTicketEntryView(ticket_cog))  # type: ignore
         self.add_view(TicketReviewView(ticket_cog))  # type: ignore
         self.add_view(TicketControlView(ticket_cog))  # type: ignore
         self.add_view(TicketWarningView(ticket_cog))  # type: ignore

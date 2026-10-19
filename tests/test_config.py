@@ -68,3 +68,39 @@ def test_validation_sheets_without_spreadsheet_id():
 
     with pytest.raises(ValueError, match="spreadsheet_id must be provided"):
         cfg.validate()
+
+
+def test_ticket_entry_view_category_buttons():
+    """Verify that TicketEntryView generates a button for each configured category."""
+    from unittest.mock import MagicMock
+    from clubhub.cogs.ticket_views import TicketEntryView
+
+    mock_cog = MagicMock()
+    mock_cog.config.tickets.categories = {
+        "cat1": TicketCategoryConfig(
+            key="cat1",
+            display_name="Category 1",
+            description="Desc 1",
+            review_channel="ch1",
+            handling_roles=["Role1"],
+        ),
+        "cat2": TicketCategoryConfig(
+            key="cat2",
+            display_name="Category 2",
+            description="Desc 2",
+            review_channel="ch2",
+            handling_roles=["Role2"],
+            is_sensitive=True,
+        ),
+    }
+
+    view = TicketEntryView(mock_cog)
+    assert len(view.children) == 2
+    button1 = view.children[0]
+    button2 = view.children[1]
+
+    assert button1.label == "Category 1"
+    assert button1.custom_id == "clubhub:create_ticket:cat1"
+    assert button2.label == "Category 2"
+    assert button2.custom_id == "clubhub:create_ticket:cat2"
+    assert str(button2.emoji) == "🔒"

@@ -50,14 +50,19 @@ class AdminCog(commands.Cog, name="Admin"):
             color=self.config.community.branding.color,
         )
 
-        # List available categories
+        # List available categories with their descriptions
         cat_lines = []
         for cat_cfg in self.config.tickets.categories.values():
-            lock = "🔒 " if cat_cfg.is_sensitive else "💬 "
-            cat_lines.append(f"{lock}**{cat_cfg.display_name}**: {cat_cfg.description}")
+            emoji = cat_cfg.emoji or ("🔒" if cat_cfg.is_sensitive else "💬")
+            cat_lines.append(f"{emoji} **{cat_cfg.display_name}**\n*{cat_cfg.description}*")
 
         if cat_lines:
-            embed.add_field(name="Available Categories", value="\n".join(cat_lines), inline=False)
+            embed.add_field(
+                name="Choose a request type below:",
+                value="\n\n".join(cat_lines),
+                inline=False,
+            )
+        embed.set_footer(text="Click a button below to open a ticket form immediately.")
 
         ticket_cog = self.bot.get_cog("Tickets")
         view = TicketEntryView(ticket_cog)  # type: ignore

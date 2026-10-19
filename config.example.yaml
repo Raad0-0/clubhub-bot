@@ -53,9 +53,7 @@ tickets:
   # Entry Panel Configuration
   panel:
     title: "COMMUNITY SUPPORT"
-    description: "Need assistance or want to raise a concern?\nSubmit a request for the appropriate team to review."
-    button_label: "Create Ticket"
-    button_emoji: "📩"
+    description: "Need assistance or want to raise a concern?\nClick one of the buttons below to open a request directly."
 
   # Category Routing (Maps member request categories to review channels & handling teams)
   categories:
@@ -66,6 +64,7 @@ tickets:
       handling_roles:
         - "Support Team"
       is_sensitive: false
+      emoji: "💬"
 
     membership_question:
       display_name: "Membership Question"
@@ -74,6 +73,7 @@ tickets:
       handling_roles:
         - "Support Team"
       is_sensitive: false
+      emoji: "📋"
 
     activity_help:
       display_name: "Activity or Project Help"
@@ -82,6 +82,7 @@ tickets:
       handling_roles:
         - "Support Team"
       is_sensitive: false
+      emoji: "🛠️"
 
     private_concern:
       display_name: "Complaint / Private Concern"
@@ -91,6 +92,7 @@ tickets:
         - "Welfare Officer"
         - "HR"
       is_sensitive: true
+      emoji: "🔒"
 
 # Google Sheets Integration (Optional Reporting Register)
 sheets_reporting:

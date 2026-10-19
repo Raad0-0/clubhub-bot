@@ -50,6 +50,8 @@ class TicketCategoryConfig:
     review_channel: Union[str, int]
     handling_roles: List[Union[str, int]]
     is_sensitive: bool = False
+    emoji: Optional[str] = None
+    button_style: Optional[str] = None
 
 
 @dataclass
@@ -256,6 +258,8 @@ def load_config(config_path: Union[str, Path] = "config.yaml", env_path: Optiona
                 review_channel=cat_val.get("review_channel", "support-review"),
                 handling_roles=cat_val.get("handling_roles", ["Support Team"]),
                 is_sensitive=bool(cat_val.get("is_sensitive", False)),
+                emoji=cat_val.get("emoji"),
+                button_style=cat_val.get("button_style"),
             )
 
     tickets = TicketsConfig(
