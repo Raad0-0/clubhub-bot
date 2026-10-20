@@ -38,6 +38,7 @@ venv.bak/
 credentials.json
 *.db
 *.sqlite3
+*.zip
 
 # Unit test / coverage reports
 htmlcov/
