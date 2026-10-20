@@ -184,6 +184,39 @@ async def test_events_and_rsvps(db):
     assert len(updated_summary["going"]) == 0
     assert "Alice" in updated_summary["maybe"]
 
+    # Test get_events_for_guild
+    events = await db.get_events_for_guild(200)
+    assert len(events) == 1
+    assert events[0]["event_id"] == event_id
+
+    # Test publishing
+    published = await db.publish_event(event_id, channel_id=999, message_id=888)
+    assert published is True
+    published_event = await db.get_event(event_id)
+    assert published_event["status"] == "published"
+
+    # Test cancellation
+    cancelled = await db.cancel_event(event_id)
+    assert cancelled is True
+    cancelled_event = await db.get_event(event_id)
+    assert cancelled_event["status"] == "cancelled"
+
+    # Test conclusion (event remains in guild records for history)
+    concluded = await db.conclude_event(event_id)
+    assert concluded is True
+    concluded_event = await db.get_event(event_id)
+    assert concluded_event["status"] == "concluded"
+    guild_events = await db.get_events_for_guild(200)
+    assert any(e["event_id"] == event_id for e in guild_events)
+
+    # Test deletion (event is removed from guild event listing)
+    deleted = await db.delete_event(event_id)
+    assert deleted is True
+    deleted_event = await db.get_event(event_id)
+    assert deleted_event["status"] == "deleted"
+    guild_events_after_delete = await db.get_events_for_guild(200)
+    assert not any(e["event_id"] == event_id for e in guild_events_after_delete)
+
 
 @pytest.mark.asyncio
 async def test_single_channel_ticket_mode(db):

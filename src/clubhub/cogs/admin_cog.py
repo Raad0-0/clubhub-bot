@@ -28,9 +28,9 @@ class AdminCog(commands.Cog, name="Admin"):
             return False
         if user.guild_permissions.administrator:
             return True
-        admin_roles = self.config.roles.admin_roles
+        admin_roles = [str(r).lower() for r in self.config.roles.admin_roles]
         for role in user.roles:
-            if role.name in admin_roles or role.id in admin_roles:
+            if role.name.lower() in admin_roles or role.id in self.config.roles.admin_roles:
                 return True
         return False
 
@@ -42,34 +42,18 @@ class AdminCog(commands.Cog, name="Admin"):
             return
 
         target_ch = channel or ctx.channel
-        panel_cfg = self.config.tickets.panel
-
-        embed = discord.Embed(
-            title=panel_cfg.title,
-            description=panel_cfg.description,
-            color=self.config.community.branding.color,
-        )
-
-        # List available categories with their descriptions
-        cat_lines = []
-        for cat_cfg in self.config.tickets.categories.values():
-            emoji = cat_cfg.emoji or ("🔒" if cat_cfg.is_sensitive else "💬")
-            cat_lines.append(f"{emoji} **{cat_cfg.display_name}**\n*{cat_cfg.description}*")
-
-        if cat_lines:
-            embed.add_field(
-                name="Choose a request type below:",
-                value="\n\n".join(cat_lines),
-                inline=False,
+        ticket_cog: Any = self.bot.get_cog("Tickets")
+        if ticket_cog and hasattr(ticket_cog, "post_panel"):
+            await ticket_cog.post_panel(target_ch)
+        else:
+            view = TicketEntryView(ticket_cog)
+            await target_ch.send(
+                content="### 🏛️ COMMUNITY SUPPORT\nClick a button below to open a ticket form immediately.",
+                view=view,
             )
-        embed.set_footer(text="Click a button below to open a ticket form immediately.")
 
-        ticket_cog = self.bot.get_cog("Tickets")
-        view = TicketEntryView(ticket_cog)  # type: ignore
-
-        await target_ch.send(embed=embed, view=view)
         if target_ch != ctx.channel:
-            await ctx.send(f"✅ Support entry panel deployed in {target_ch.mention}!")
+            await ctx.send(f"✅ Full-width support entry panel deployed in {target_ch.mention}!")
 
     @commands.group(name="clubhub", invoke_without_command=True)
     async def clubhub_group(self, ctx: commands.Context) -> None:
@@ -77,6 +61,8 @@ class AdminCog(commands.Cog, name="Admin"):
         await ctx.send(
             "ClubHub Admin Commands:\n"
             "`!post_panel` - Deploy the permanent ticket entry panel\n"
+            "`!post_event_panel` - Deploy the event creation and management panel\n"
+            "`!setup_event_channel` - Create and lock dedicated #create-event channel\n"
             "`!clubhub status` - View operational statistics\n"
             "`!clubhub sync` - Sync slash commands with Discord"
         )

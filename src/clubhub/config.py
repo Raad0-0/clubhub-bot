@@ -27,9 +27,11 @@ class CommunityConfig:
 
 @dataclass
 class RolesConfig:
-    admin_roles: List[Union[str, int]] = field(default_factory=lambda: ["Administrator"])
-    organizer_roles: List[Union[str, int]] = field(default_factory=lambda: ["Organizer", "Committee"])
-    support_roles: List[Union[str, int]] = field(default_factory=lambda: ["Support Team"])
+    admin_roles: List[Union[str, int]] = field(default_factory=lambda: ["Administrator", "Admin"])
+    organizer_roles: List[Union[str, int]] = field(
+        default_factory=lambda: ["Event Management", "Organizer", "Committee"]
+    )
+    support_roles: List[Union[str, int]] = field(default_factory=lambda: ["Support Team", "Support"])
     private_concern_roles: List[Union[str, int]] = field(default_factory=lambda: ["Welfare Officer", "HR"])
 
 
@@ -40,6 +42,7 @@ class ChannelsConfig:
     event_qa_review_channel: Union[str, int] = "meeting-planning"
     bot_log_channel: Union[str, int] = "bot-log"
     support_panel_channel: Union[str, int] = "open-a-ticket"
+    event_management_channel: Union[str, int] = "create-event"
 
 
 @dataclass
@@ -66,9 +69,10 @@ class TicketCleanupConfig:
 @dataclass
 class TicketPanelConfig:
     title: str = "COMMUNITY SUPPORT"
-    description: str = "Need assistance or want to raise a concern?\nSubmit a request for the appropriate team to review."
+    description: str = "Need assistance or want to raise a concern?\nClick one of the buttons below to open a request directly."
     button_label: str = "Create Ticket"
     button_emoji: str = "📩"
+    buttons_per_row: int = 4
 
 
 @dataclass
@@ -193,9 +197,11 @@ def load_config(config_path: Union[str, Path] = "config.yaml", env_path: Optiona
     # Roles
     roles_data = raw_cfg.get("roles", {})
     roles = RolesConfig(
-        admin_roles=roles_data.get("admin_roles", ["Administrator"]),
-        organizer_roles=roles_data.get("organizer_roles", ["Organizer", "Committee"]),
-        support_roles=roles_data.get("support_roles", ["Support Team"]),
+        admin_roles=roles_data.get("admin_roles", ["Administrator", "Admin"]),
+        organizer_roles=roles_data.get(
+            "organizer_roles", ["Event Management", "Organizer", "Committee"]
+        ),
+        support_roles=roles_data.get("support_roles", ["Support Team", "Support"]),
         private_concern_roles=roles_data.get("private_concern_roles", ["Welfare Officer", "HR"]),
     )
 
@@ -207,6 +213,10 @@ def load_config(config_path: Union[str, Path] = "config.yaml", env_path: Optiona
         event_qa_review_channel=channels_data.get("event_qa_review_channel", "meeting-planning"),
         bot_log_channel=channels_data.get("bot_log_channel", "bot-log"),
         support_panel_channel=channels_data.get("support_panel_channel", "open-a-ticket"),
+        event_management_channel=channels_data.get(
+            "event_management_channel",
+            channels_data.get("event_creation_channel", "create-event"),
+        ),
     )
 
     # Tickets
@@ -223,9 +233,10 @@ def load_config(config_path: Union[str, Path] = "config.yaml", env_path: Optiona
     panel_data = tickets_data.get("panel", {})
     panel = TicketPanelConfig(
         title=panel_data.get("title", "COMMUNITY SUPPORT"),
-        description=panel_data.get("description", "Need assistance or want to raise a concern?\nSubmit a request for the appropriate team to review."),
+        description=panel_data.get("description", "Need assistance or want to raise a concern?\nClick one of the buttons below to open a request directly."),
         button_label=panel_data.get("button_label", "Create Ticket"),
         button_emoji=panel_data.get("button_emoji", "📩"),
+        buttons_per_row=int(panel_data.get("buttons_per_row", 4)),
     )
 
     # Categories
@@ -233,21 +244,45 @@ def load_config(config_path: Union[str, Path] = "config.yaml", env_path: Optiona
     raw_cats = tickets_data.get("categories", {})
     if not raw_cats:
         # Default starter categories if none supplied in yaml
-        categories["general_assistance"] = TicketCategoryConfig(
-            key="general_assistance",
-            display_name="General Assistance",
-            description="General questions and support",
+        categories["study_help"] = TicketCategoryConfig(
+            key="study_help",
+            display_name="Study Help",
+            description="Academic guidance, study groups, coursework questions, and peer support",
             review_channel="support-review",
-            handling_roles=["Support Team"],
+            handling_roles=["Support"],
             is_sensitive=False,
+            emoji="📖",
+            button_style="primary",
+        )
+        categories["membership_question"] = TicketCategoryConfig(
+            key="membership_question",
+            display_name="Membership Question",
+            description="Questions regarding club membership, status, workshop or registration",
+            review_channel="support-review",
+            handling_roles=["Support"],
+            is_sensitive=False,
+            emoji="📋",
+            button_style="secondary",
+        )
+        categories["project_help"] = TicketCategoryConfig(
+            key="project_help",
+            display_name="Project Help",
+            description="Assistance with your current club projects or activities",
+            review_channel="support-review",
+            handling_roles=["Support"],
+            is_sensitive=False,
+            emoji="🛠️",
+            button_style="success",
         )
         categories["private_concern"] = TicketCategoryConfig(
             key="private_concern",
             display_name="Complaint / Private Concern",
-            description="Confidential complaints or welfare concerns",
+            description="Confidential complaints, sensitive interpersonal issues, welfare",
             review_channel="private-review",
-            handling_roles=["Welfare Officer", "HR"],
+            handling_roles=["HR"],
             is_sensitive=True,
+            emoji="🔒",
+            button_style="danger",
         )
     else:
         for cat_key, cat_val in raw_cats.items():

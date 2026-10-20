@@ -562,6 +562,49 @@ class DatabaseManager:
             await self._connection.commit()
             return updated
 
+    async def conclude_event(self, event_id: int) -> bool:
+        """Mark an event as concluded / completed."""
+        assert self._connection is not None
+        async with self._connection.cursor() as cursor:
+            await cursor.execute(
+                "UPDATE events SET status = 'concluded' WHERE event_id = ?",
+                (event_id,),
+            )
+            updated = cursor.rowcount > 0
+            await self._connection.commit()
+            return updated
+
+    async def delete_event(self, event_id: int) -> bool:
+        """Mark an event as deleted / removed."""
+        assert self._connection is not None
+        async with self._connection.cursor() as cursor:
+            await cursor.execute(
+                "UPDATE events SET status = 'deleted' WHERE event_id = ?",
+                (event_id,),
+            )
+            updated = cursor.rowcount > 0
+            await self._connection.commit()
+            return updated
+
+    async def get_events_for_guild(
+        self, guild_id: int, status: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Fetch all events for a guild, optionally filtered by status."""
+        assert self._connection is not None
+        async with self._connection.cursor() as cursor:
+            if status:
+                await cursor.execute(
+                    "SELECT * FROM events WHERE guild_id = ? AND status = ? ORDER BY event_id DESC LIMIT 25",
+                    (guild_id, status),
+                )
+            else:
+                await cursor.execute(
+                    "SELECT * FROM events WHERE guild_id = ? AND status != 'deleted' ORDER BY event_id DESC LIMIT 25",
+                    (guild_id,),
+                )
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
     async def set_rsvp(self, event_id: int, user_id: int, user_name: str, response: str) -> None:
         """Set or update a member's RSVP for an event."""
         assert self._connection is not None

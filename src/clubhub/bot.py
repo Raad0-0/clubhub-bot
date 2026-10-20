@@ -62,7 +62,11 @@ class ClubHubBot(commands.Bot):
             TicketReviewView,
             TicketWarningView,
         )
-        from clubhub.cogs.events_cog import EventQuestionReviewView, EventRsvpView
+        from clubhub.cogs.events_cog import (
+            EventCreateLaunchView,
+            EventQuestionNotifyView,
+            EventRsvpView,
+        )
 
         ticket_cog = self.get_cog("Tickets")
         events_cog = self.get_cog("Events")
@@ -73,7 +77,8 @@ class ClubHubBot(commands.Bot):
         self.add_view(TicketControlView(ticket_cog))  # type: ignore
         self.add_view(TicketWarningView(ticket_cog))  # type: ignore
         self.add_view(EventRsvpView(events_cog))  # type: ignore
-        self.add_view(EventQuestionReviewView(events_cog))  # type: ignore
+        self.add_view(EventQuestionNotifyView(events_cog))  # type: ignore
+        self.add_view(EventCreateLaunchView(events_cog))  # type: ignore
 
         logger.info("Persistent views successfully registered.")
 

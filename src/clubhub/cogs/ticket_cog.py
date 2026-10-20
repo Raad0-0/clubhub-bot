@@ -764,7 +764,81 @@ class TicketCog(commands.Cog, name="Tickets"):
                     )
                     await self.db.update_ticket_activity(t["ticket_id"])
             except Exception:
-                pass
+                pass    # =========================================================================
+    # Support Entry Panel Generation (Full-Width Message)
+    # =========================================================================
+
+    def build_panel_content(self) -> str:
+        """Construct full-width Markdown text for the permanent support entry panel.
+
+        This format replaces narrow discord.Embed boxes so the content flows naturally
+        across the full width of the Discord chat window without artificial ~500px limits.
+        """
+        panel_cfg = self.config.tickets.panel
+
+        lines = [
+            f"# 🏛️ {panel_cfg.title}",
+        ]
+        if panel_cfg.description:
+            lines.append(panel_cfg.description)
+            lines.append("")
+
+        lines.append("### 📌 Choose a request type below:")
+
+        for cat_cfg in self.config.tickets.categories.values():
+            emoji = cat_cfg.emoji or ("🔒" if cat_cfg.is_sensitive else "💬")
+            lines.append(f"> {emoji} **{cat_cfg.display_name}**")
+            if cat_cfg.description:
+                lines.append(f"> *{cat_cfg.description}*")
+            lines.append(">")
+
+        if lines and lines[-1] == ">":
+            lines.pop()
+
+        lines.append("")
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append("⚡ **Click a button below to open a ticket form immediately.**")
+
+        return "\n".join(lines)
+
+    async def post_panel(
+        self, channel: discord.abc.Messageable
+    ) -> discord.Message:
+        """Post the permanent interactive Support Entry Panel as full-width chat content."""
+        content = self.build_panel_content()
+        view = TicketEntryView(self)
+        return await channel.send(content=content, view=view)
+
+    @app_commands.command(
+        name="post_support_panel",
+        description="Deploy the full-width support entry panel to a channel",
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def post_panel_slash(
+        self,
+        interaction: discord.Interaction,
+        channel: Optional[discord.TextChannel] = None,
+    ) -> None:
+        """Slash command to deploy the full-width support entry panel."""
+        if not self.is_user_admin(interaction.user):
+            await interaction.response.send_message(
+                "⛔ Administrator privileges required.", ephemeral=True
+            )
+            return
+
+        target_ch = channel or interaction.channel
+        if not isinstance(target_ch, discord.TextChannel):
+            await interaction.response.send_message(
+                "⛔ Target must be a standard text channel.", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        await self.post_panel(target_ch)
+        await interaction.followup.send(
+            f"✅ Full-width support entry panel deployed in {target_ch.mention}!",
+            ephemeral=True,
+        )
 
 
 async def setup(bot: ClubHubBot) -> None:

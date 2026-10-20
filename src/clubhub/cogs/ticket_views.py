@@ -98,11 +98,14 @@ class TicketCategoryButton(ui.Button):
         cog: TicketCog,
         category_key: str,
         cat_cfg: Any,
+        row: int = 0,
     ):
         emoji = getattr(cat_cfg, "emoji", None)
         if not emoji:
             if getattr(cat_cfg, "is_sensitive", False):
                 emoji = "🔒"
+            elif "study" in category_key.lower():
+                emoji = "📖"
             elif "member" in category_key.lower():
                 emoji = "📋"
             elif any(w in category_key.lower() for w in ("activity", "project", "help")):
@@ -111,12 +114,27 @@ class TicketCategoryButton(ui.Button):
                 emoji = "💬"
 
         raw_style = getattr(cat_cfg, "button_style", None)
-        if raw_style == "danger":
+        if raw_style:
+            raw_style = str(raw_style).strip().lower()
+
+        if raw_style in ("danger", "red"):
             style = discord.ButtonStyle.danger
-        elif raw_style == "success":
+        elif raw_style in ("success", "green"):
             style = discord.ButtonStyle.success
-        elif raw_style == "secondary" or getattr(cat_cfg, "is_sensitive", False):
+        elif raw_style in ("primary", "blurple", "blue"):
+            style = discord.ButtonStyle.primary
+        elif raw_style in ("secondary", "grey", "gray"):
             style = discord.ButtonStyle.secondary
+        elif getattr(cat_cfg, "is_sensitive", False) or any(
+            w in category_key.lower() for w in ("complaint", "private")
+        ):
+            style = discord.ButtonStyle.danger
+        elif any(w in category_key.lower() for w in ("project", "activity", "work")):
+            style = discord.ButtonStyle.success
+        elif "member" in category_key.lower():
+            style = discord.ButtonStyle.secondary
+        elif "study" in category_key.lower():
+            style = discord.ButtonStyle.primary
         else:
             style = discord.ButtonStyle.primary
 
@@ -125,6 +143,7 @@ class TicketCategoryButton(ui.Button):
             style=style,
             emoji=emoji,
             custom_id=f"clubhub:create_ticket:{category_key}",
+            row=row,
         )
         self.cog = cog
         self.category_key = category_key
@@ -163,8 +182,17 @@ class TicketEntryView(ui.View):
         self.cog = cog
 
         if cog:
-            for cat_key, cat_cfg in cog.config.tickets.categories.items():
-                self.add_item(TicketCategoryButton(cog, cat_key, cat_cfg))
+            buttons_per_row = 4
+            if hasattr(cog, "config") and hasattr(cog.config, "tickets"):
+                panel_cfg = getattr(cog.config.tickets, "panel", None)
+                if panel_cfg and hasattr(panel_cfg, "buttons_per_row"):
+                    val = getattr(panel_cfg, "buttons_per_row", 4)
+                    if isinstance(val, int) and val > 0:
+                        buttons_per_row = min(val, 5)
+
+            for idx, (cat_key, cat_cfg) in enumerate(cog.config.tickets.categories.items()):
+                row_idx = min(idx // buttons_per_row, 4)
+                self.add_item(TicketCategoryButton(cog, cat_key, cat_cfg, row=row_idx))
 
 
 class LegacyTicketEntryView(ui.View):

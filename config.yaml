@@ -19,8 +19,9 @@ roles:
     - "Admin"
     # - "President"
   organizer_roles:
-    # - "Event Organizer"
+    - "Event Management"
     - "Committee"
+    # - "Event Organizer"
   support_roles:
     - "Support"
     # - "Staff"
@@ -32,9 +33,10 @@ roles:
 channels:
   welcome_channel: "welcome"
   events_channel: "events"
-  event_qa_review_channel: "meeting-planning"
+  event_qa_review_channel: "events" # Falls back to events channel if no private staff channel
   bot_log_channel: "bot-log"
   support_panel_channel: "open-a-ticket"
+  event_management_channel: "create-event"
 
 # Ticket System Configuration
 tickets:
@@ -56,35 +58,39 @@ tickets:
   panel:
     title: "COMMUNITY SUPPORT"
     description: "Need assistance or want to raise a concern?\nClick one of the buttons below to open a request directly."
+    buttons_per_row: 4
 
   # Category Routing (Maps member request categories to review channels & handling teams)
   categories:
-    general_assistance:
-      display_name: "General Assistance"
-      description: "General questions and support about the community"
+    study_help:
+      display_name: "Study Help"
+      description: "Academic guidance, study groups, coursework questions, and peer support"
       review_channel: "support-review"
       handling_roles:
         - "Support"
       is_sensitive: false
-      emoji: "💬"
+      emoji: "📖"
+      button_style: "primary" # Blue (Blurple)
 
     membership_question:
       display_name: "Membership Question"
-      description: "Questions regarding club membership, status, or registration"
+      description: "Questions regarding club membership, status, workshop or registration"
       review_channel: "support-review"
       handling_roles:
         - "Support"
       is_sensitive: false
       emoji: "📋"
+      button_style: "secondary" # Grey
 
-    activity_help:
-      display_name: "Activity or Project Help"
-      description: "Assistance with current club projects, workshops, or activities"
+    project_help:
+      display_name: "Project Help"
+      description: "Assistance with your current club projects or activities"
       review_channel: "support-review"
       handling_roles:
         - "Support"
       is_sensitive: false
       emoji: "🛠️"
+      button_style: "success" # Green
 
     private_concern:
       display_name: "Complaint / Private Concern"
@@ -94,6 +100,7 @@ tickets:
         - "HR"
       is_sensitive: true
       emoji: "🔒"
+      button_style: "danger" # Red
 
 # Google Sheets Integration (Optional Reporting Register)
 sheets_reporting:

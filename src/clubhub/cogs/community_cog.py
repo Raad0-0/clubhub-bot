@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Optional, Union
 import discord
+from discord import app_commands
 from discord.ext import commands, tasks
 
 if TYPE_CHECKING:
@@ -51,17 +52,16 @@ class CommunityCog(commands.Cog, name="Community"):
     # Welcome Greetings (Section 14)
     # =========================================================================
 
-    @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member) -> None:
-        """Greet new members and provide links to community orientation channels."""
+    async def send_welcome_greeting(
+        self, member: discord.Member, target_channel: Optional[discord.TextChannel] = None
+    ) -> tuple[bool, Optional[str]]:
+        """Render and dispatch the welcome greeting embed to a target channel."""
         welcome_cfg = self.config.welcome
-        if not welcome_cfg.enabled:
-            return
-
         guild = member.guild
-        welcome_ch = self._resolve_channel(guild, self.config.channels.welcome_channel)
+
+        welcome_ch = target_channel or self._resolve_channel(guild, self.config.channels.welcome_channel)
         if not welcome_ch:
-            return
+            return False, f"Configured welcome channel '{self.config.channels.welcome_channel}' could not be resolved."
 
         rules_ch = self._resolve_channel(guild, welcome_cfg.rules_channel)
         guide_ch = self._resolve_channel(guild, welcome_cfg.guide_channel)
@@ -93,8 +93,90 @@ class CommunityCog(commands.Cog, name="Community"):
 
         try:
             await welcome_ch.send(content=member.mention, embed=embed)
+            return True, None
         except Exception as e:
             logger.warning(f"Could not send welcome message: {e}")
+            return False, str(e)
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member) -> None:
+        """Greet new members and provide links to community orientation channels."""
+        if not self.config.welcome.enabled:
+            return
+        await self.send_welcome_greeting(member)
+
+    @commands.command(name="test_welcome")
+    async def test_welcome_cmd(
+        self,
+        ctx: commands.Context,
+        target_member: Optional[discord.Member] = None,
+        channel: Optional[discord.TextChannel] = None,
+    ) -> None:
+        """Admin command to simulate and preview a welcome message."""
+        admin_roles = self.config.roles.admin_roles
+        is_admin = ctx.author.guild_permissions.administrator or any(
+            r.name in admin_roles or r.id in admin_roles for r in getattr(ctx.author, "roles", [])
+        )
+        if not is_admin:
+            await ctx.send("⛔ Only Administrators may run the welcome test command.")
+            return
+
+        member = target_member or (ctx.author if isinstance(ctx.author, discord.Member) else None)
+        if not member:
+            await ctx.send("⚠️ Could not determine member context for testing.")
+            return
+
+        success, err = await self.send_welcome_greeting(member, target_channel=channel)
+        if success:
+            dest = channel.mention if channel else f"the configured welcome channel"
+            await ctx.send(f"✅ **Welcome message sent to {dest}** for {member.mention}!")
+        else:
+            await ctx.send(f"⚠️ Failed to send welcome message: {err}")
+
+    @app_commands.command(
+        name="test_welcome",
+        description="Simulate and preview the welcome greeting card for a member",
+    )
+    @app_commands.describe(
+        member="Optional member to test greeting for (defaults to you)",
+        channel="Optional channel to send preview to (defaults to #welcome)",
+    )
+    async def test_welcome_slash(
+        self,
+        interaction: discord.Interaction,
+        member: Optional[discord.Member] = None,
+        channel: Optional[discord.TextChannel] = None,
+    ) -> None:
+        """Slash command for Admins to simulate and preview the welcome message."""
+        if not interaction.guild:
+            await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
+            return
+
+        user_roles = getattr(interaction.user, "roles", [])
+        admin_roles = self.config.roles.admin_roles
+        is_admin = getattr(interaction.user.guild_permissions, "administrator", False) or any(
+            r.name in admin_roles or r.id in admin_roles for r in user_roles
+        )
+        if not is_admin:
+            await interaction.response.send_message(
+                "⛔ Only Administrators may test the welcome message.", ephemeral=True
+            )
+            return
+
+        target_member = member or (interaction.user if isinstance(interaction.user, discord.Member) else None)
+        if not target_member:
+            await interaction.response.send_message("⚠️ Could not determine member context.", ephemeral=True)
+            return
+
+        success, err = await self.send_welcome_greeting(target_member, target_channel=channel)
+        if success:
+            dest = channel.mention if channel else "the configured welcome channel"
+            await interaction.response.send_message(
+                f"✅ **Welcome message test sent to {dest}** for {target_member.mention}!",
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(f"⚠️ Failed to send welcome message: {err}", ephemeral=True)
 
     # =========================================================================
     # Reminder System (Section 14)

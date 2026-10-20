@@ -20,6 +20,7 @@ This document describes how to deploy ClubHub in production environments.
    sudo chown clubhub:clubhub /opt/clubhub
    sudo -u clubhub git clone https://github.com/your-org/clubhub.git /opt/clubhub
    cd /opt/clubhub
+
    sudo -u clubhub python3 -m venv venv
    sudo -u clubhub ./venv/bin/pip install -r requirements.txt
    ```
