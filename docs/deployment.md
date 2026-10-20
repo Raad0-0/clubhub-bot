@@ -11,7 +11,28 @@ This document describes how to deploy ClubHub in production environments.
 
 ---
 
-## 2. Linux Deployment via systemd
+## 2. Free 24/7 Hosting via Discloud
+
+Discloud provides a free tier specifically designed for hosting Discord bots 24/7 with persistent storage and auto-restart.
+
+### Setup Steps:
+1. Log in to [Discloud Dashboard](https://discloudbot.com/) using your Discord account.
+2. Ensure your bot files include:
+   - `discloud.config` (pre-configured in the repository)
+   - `main.py` (root launcher)
+   - `requirements.txt`
+   - `config.yaml`
+   - `.env` (containing your `DISCORD_TOKEN`)
+3. **Upload Method A: Web Dashboard (Zip)**
+   - Compress the project files into a `.zip` file (excluding `venv/`).
+   - Go to Discloud Dashboard -> **Upload App** -> Select your `.zip`.
+4. **Upload Method B: GitHub Sync**
+   - In Discloud Dashboard, connect your GitHub repository and trigger deployment.
+5. Click **Start** — your bot will stay online 24/7 without requiring your local PC.
+
+---
+
+## 3. Linux Deployment via systemd
 
 1. Clone and set up the bot directory:
    ```bash
@@ -60,7 +81,7 @@ This document describes how to deploy ClubHub in production environments.
 
 ---
 
-## 3. Docker Deployment
+## 4. Docker Deployment
 
 A minimal `Dockerfile` is provided for containerized deployments:
 
@@ -70,7 +91,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-CMD ["python", "-m", "clubhub.main"]
+CMD ["python", "main.py"]
 ```
 
 Build and run:
@@ -85,7 +106,7 @@ docker run -d --name clubhub \
 
 ---
 
-## 4. Operational Backups
+## 5. Operational Backups
 Operational data is stored in the SQLite database (`clubhub.db` or configured path).
 Perform automated daily backups using standard SQLite backup or cron:
 ```bash
