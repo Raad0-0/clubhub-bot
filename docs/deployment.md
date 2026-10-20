@@ -11,7 +11,33 @@ This document describes how to deploy ClubHub in production environments.
 
 ---
 
-## 2. Free 24/7 Hosting via Discloud
+## 2. Google Cloud Always-Free VM (Recommended 24/7 Hosting)
+
+Google Cloud offers an **Always Free** tier that includes **1 free `e2-micro` virtual machine** every month with persistent disk and 24/7 uptime.
+
+### Step 1: Create the Free VM
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) -> **Compute Engine** -> **VM instances** -> **Create Instance**.
+2. Configure with Always Free eligible settings:
+   - **Region**: `us-central1` (Iowa), `us-east1` (South Carolina), or `us-west1` (Oregon).
+   - **Series**: `E2`
+   - **Machine type**: `e2-micro` (2 vCPU, 1 GB memory).
+   - **Boot disk**: Change to **Ubuntu 22.04 LTS** or **24.04 LTS** (Standard Persistent Disk, up to 30 GB).
+3. Click **Create**.
+
+### Step 2: One-Command Deployment
+1. Click the **SSH** button next to your VM instance to open the in-browser terminal.
+2. Run this command:
+   ```bash
+   git clone https://github.com/Raad0-0/clubhub-bot.git
+   cd clubhub-bot
+   bash scripts/setup_gcp.sh
+   ```
+3. When prompted, enter your `DISCORD_TOKEN`.
+4. Done! The bot will be installed, configured as a 24/7 `systemd` service, and started immediately.
+
+---
+
+## 3. Alternative: Free 24/7 Hosting via Discloud
 
 Discloud provides a free tier specifically designed for hosting Discord bots 24/7 with persistent storage and auto-restart.
 
