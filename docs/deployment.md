@@ -37,7 +37,41 @@ Google Cloud offers an **Always Free** tier that includes **1 free `e2-micro` vi
 
 ---
 
-## 3. Alternative: Free 24/7 Hosting via Discloud
+## 3. Free Web Service Deployment on Render (+ UptimeRobot Keep-Alive)
+
+Render provides a Free Tier for **Web Services** that run directly from your GitHub repository.
+
+### Step 1: Deploy on Render
+1. Go to [Render Dashboard](https://dashboard.render.com/) and click **New > Web Service** (or use **Blueprints** with `render.yaml`).
+2. Connect your GitHub repository (`Raad0-0/clubhub-bot`).
+3. Set the service configuration:
+   - **Environment**: `Python 3`
+   - **Region**: Choose any region (e.g., Oregon or Frankfurt).
+   - **Branch**: `main`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `python -m clubhub.main`
+   - **Instance Type**: `Free`
+4. Under **Advanced / Health Check Path**:
+   - Set Health Check Path to: `/health`
+5. Under **Environment Variables**:
+   - `DISCORD_TOKEN`: *(Paste your secret bot token)*
+   - `ENVIRONMENT`: `production`
+6. Click **Create Web Service**.
+
+### Step 2: Prevent 15-Minute Idle Shutdown via UptimeRobot
+Render's free tier spins down web services after 15 minutes of inactivity. To keep your bot running 24/7 without stopping:
+1. Sign up for free at [UptimeRobot.com](https://uptimerobot.com/).
+2. Click **Add New Monitor**:
+   - **Monitor Type**: `HTTP(s)`
+   - **Friendly Name**: `ClubHub Discord Bot`
+   - **URL (or IP)**: `https://your-service-name.onrender.com/health` (or root `https://your-service-name.onrender.com/`)
+   - **Monitoring Interval**: Every `5 minutes` (or `10 minutes`)
+3. Click **Create Monitor**.
+*UptimeRobot will ping your `/health` route every 5 minutes, keeping Render's container awake 24/7 so your Discord bot never disconnects!*
+
+---
+
+## 4. Alternative: Free 24/7 Hosting via Discloud
 
 Discloud provides a free tier specifically designed for hosting Discord bots 24/7 with persistent storage and auto-restart.
 
@@ -58,7 +92,7 @@ Discloud provides a free tier specifically designed for hosting Discord bots 24/
 
 ---
 
-## 3. Linux Deployment via systemd
+## 5. Linux Deployment via systemd
 
 1. Clone and set up the bot directory:
    ```bash
@@ -107,7 +141,7 @@ Discloud provides a free tier specifically designed for hosting Discord bots 24/
 
 ---
 
-## 4. Docker Deployment
+## 6. Docker Deployment
 
 A minimal `Dockerfile` is provided for containerized deployments:
 
@@ -132,7 +166,7 @@ docker run -d --name clubhub \
 
 ---
 
-## 5. Operational Backups
+## 7. Operational Backups
 Operational data is stored in the SQLite database (`clubhub.db` or configured path).
 Perform automated daily backups using standard SQLite backup or cron:
 ```bash

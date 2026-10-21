@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 import discord
 
 from clubhub.bot import ClubHubBot
-from clubhub.config import load_config
+from clubhub.config import AppConfig, load_config
+from clubhub.web_health import start_web_server, stop_web_server
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -22,8 +25,24 @@ def setup_logging(log_level: str = "INFO") -> None:
     )
 
 
+async def run_bot_with_web_server(config: AppConfig) -> None:
+    """Run both the HTTP health check server and Discord bot concurrently in the same event loop."""
+    port = int(os.environ.get("PORT", 10000))
+    host = "0.0.0.0"
+
+    web_runner = await start_web_server(host=host, port=port)
+    bot = ClubHubBot(config=config)
+
+    try:
+        async with bot:
+            await bot.start(config.discord_token)
+    finally:
+        logging.info("Initiating graceful shutdown of web server and bot...")
+        await stop_web_server(web_runner)
+
+
 def main() -> None:
-    """Run the ClubHub Discord bot."""
+    """Run the ClubHub Discord bot with concurrent HTTP health server."""
     config_file = "config.yaml"
     if not Path(config_file).exists() and Path("config.example.yaml").exists():
         config_file = "config.example.yaml"
@@ -42,10 +61,8 @@ def main() -> None:
         logging.error("Please review your config.yaml and .env settings.")
         sys.exit(1)
 
-    bot = ClubHubBot(config=config)
-
     try:
-        bot.run(config.discord_token)
+        asyncio.run(run_bot_with_web_server(config))
     except discord.LoginFailure:
         logging.error("Invalid Discord Bot Token provided in DISCORD_TOKEN.")
         sys.exit(1)
@@ -69,7 +86,7 @@ def main() -> None:
             "================================================================================\n"
         )
         sys.exit(1)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         logging.info("Interrupted by user. Exiting cleanly.")
     except Exception as e:
         logging.critical(f"Fatal error during bot execution: {e}", exc_info=True)
