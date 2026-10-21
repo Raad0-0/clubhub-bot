@@ -3,8 +3,8 @@ services:
     name: clubhub-bot
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: python -m clubhub.main
+    buildCommand: pip install -r requirements.txt && pip install -e .
+    startCommand: python main.py
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -14,3 +14,5 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: PYTHONPATH
+        value: src

@@ -48,8 +48,8 @@ Render provides a Free Tier for **Web Services** that run directly from your Git
    - **Environment**: `Python 3`
    - **Region**: Choose any region (e.g., Oregon or Frankfurt).
    - **Branch**: `main`
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `python -m clubhub.main`
+   - **Build Command**: `pip install -r requirements.txt && pip install -e .`
+   - **Start Command**: `python main.py`
    - **Instance Type**: `Free`
 4. Under **Advanced / Health Check Path**:
    - Set Health Check Path to: `/health`

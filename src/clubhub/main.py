@@ -7,6 +7,12 @@ import logging
 import os
 import sys
 from pathlib import Path
+
+# Ensure package directory (src/) is always in sys.path on any cloud host
+_src_dir = str(Path(__file__).resolve().parent.parent)
+if _src_dir not in sys.path:
+    sys.path.insert(0, _src_dir)
+
 import discord
 
 from clubhub.bot import ClubHubBot
