@@ -132,6 +132,7 @@ pytest
 
 ## 📚 Documentation
 
+* [Complete In-Discord Setup & User Guide](docs/discord_user_guide.md)
 * [Setup & Discord Developer Guide](docs/setup.md)
 * [Server Structure & Permissions Blueprint](docs/server_blueprint.md)
 * [Production Deployment (systemd & Docker)](docs/deployment.md)
