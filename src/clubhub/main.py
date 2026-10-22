@@ -37,11 +37,28 @@ async def run_bot_with_web_server(config: AppConfig) -> None:
     host = "0.0.0.0"
 
     web_runner = await start_web_server(host=host, port=port)
-    bot = ClubHubBot(config=config)
 
     try:
-        async with bot:
-            await bot.start(config.discord_token)
+        backoff = 60
+        max_backoff = 300
+        while True:
+            bot = ClubHubBot(config=config)
+            try:
+                async with bot:
+                    await bot.start(config.discord_token)
+                break
+            except discord.HTTPException as http_err:
+                if http_err.status == 429:
+                    logging.warning(
+                        "⚠️ Discord/Cloudflare 429 Rate Limit (Error 1015 on host IP). "
+                        "The hosting datacenter IP is temporarily rate-limited by Discord edge. "
+                        f"Sleeping for {backoff}s before retrying, while keeping HTTP health check server "
+                        "alive so Render stays healthy and avoids rapid crash-restart loops..."
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, max_backoff)
+                else:
+                    raise
     finally:
         logging.info("Initiating graceful shutdown of web server and bot...")
         await stop_web_server(web_runner)
